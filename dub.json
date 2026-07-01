@@ -1,0 +1,28 @@
+{
+    "name": "d_imgui",
+    "description": "cimgui docking-branch D shim for vibe3d (imgui 1.92.8)",
+    "authors": ["vibe3d contributors"],
+    "license": "MIT",
+    "targetType": "staticLibrary",
+    "targetName": "d_imgui_stub",
+    "sourcePaths": ["source"],
+    "importPaths": ["source"],
+    "preBuildCommands": [
+        "\"$PACKAGE_DIR/tools/build_imgui_libs.sh\""
+    ],
+    "lflags-linux": [
+        "$PACKAGE_DIR/lib/libcimgui_docking.a",
+        "-lstdc++",
+        "-L$PACKAGE_DIR/lib",
+        "-lSDL2"
+    ],
+    "lflags-osx": [
+        "$PACKAGE_DIR/lib/libcimgui_docking.a",
+        "-lc++",
+        "-L$PACKAGE_DIR/lib",
+        "-lSDL2"
+    ],
+    "dependencies": {
+        "bindbc-sdl": "*"
+    }
+}
