@@ -505,9 +505,41 @@ enum ImGuiConfigFlags : int
     NavEnableGamepad      = 1 << 1,
     NoMouse               = 1 << 4,
     NoMouseCursorChange   = 1 << 5,
-    NoKeyboard            = 1 << 7,
+    NoKeyboard            = 1 << 6,   // corrected from old shim's 1<<7
+    DockingEnable         = 1 << 7,   // Phase 0b: enable docking
+    ViewportsEnable       = 1 << 10,  // bound but kept OFF (multi-OS-window)
     IsSRGB                = 1 << 20,
     IsTouchScreen         = 1 << 21,
+}
+
+// ── Docking (Phase 0b) ───────────────────────────────────────────────────────
+
+/// Opaque docking-graph node — only used as a pointer type by the DockBuilder API.
+struct ImGuiDockNode;
+
+/// Flags controlling the behaviour of a dockspace node (public subset).
+/// Values match cimgui 1.92.8 docking-branch cimgui.h ImGuiDockNodeFlags_.
+enum ImGuiDockNodeFlags : int
+{
+    None                     = 0,
+    KeepAliveOnly            = 1 << 0,
+    NoDockingOverCentralNode = 1 << 2,
+    PassthruCentralNode      = 1 << 3,  // central node is mouse-transparent
+    NoDockingSplit           = 1 << 4,
+    NoResize                 = 1 << 5,
+    AutoHideTabBar           = 1 << 6,
+    NoUndocking              = 1 << 7,
+}
+
+/// Cardinal directions used by DockBuilderSplitNode.
+/// Values match cimgui 1.92.8 docking-branch cimgui.h ImGuiDir_.
+enum ImGuiDir : int
+{
+    None  = -1,
+    Left  =  0,
+    Right =  1,
+    Up    =  2,
+    Down  =  3,
 }
 
 enum ImGuiInputTextFlags : int

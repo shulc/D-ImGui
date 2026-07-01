@@ -525,3 +525,89 @@ void SetKeyboardFocusHere(int offset = 0) @trusted
 {
     igSetKeyboardFocusHere(offset);
 }
+
+// ── Window ID ─────────────────────────────────────────────────────────────────
+
+/// Returns a stable ID hash for a string label in the current ID stack.
+/// Used to obtain the dockspace ID:  ImGuiID id = ImGui.GetID("MainDockSpace");
+ImGuiID GetID(string str_id) @trusted
+{
+    return igGetID_Str(cstr(str_id));
+}
+
+// ── Docking (Phase 0b) ────────────────────────────────────────────────────────
+
+/// Create a dockspace inside the current window.
+/// size = (0,0) fills the entire remaining window content area.
+/// flags = ImGuiDockNodeFlags bitmask (e.g. PassthruCentralNode).
+/// Returns the dockspace's root node ImGuiID.
+ImGuiID DockSpace(ImGuiID dockspaceId,
+                  ImVec2  size  = ImVec2(0, 0),
+                  int     flags = 0) @trusted
+{
+    return igDockSpace(dockspaceId, size.c, flags, null);
+}
+
+// ── DockBuilder (Phase 0b) ────────────────────────────────────────────────────
+// These functions are for programmatic initial layout setup (run once at startup).
+
+/// Remove all nodes rooted at nodeId, clearing any persisted layout.
+void DockBuilderRemoveNode(ImGuiID nodeId) @trusted
+{
+    igDockBuilderRemoveNode(nodeId);
+}
+
+/// Add a new root docking node (or reset nodeId to a fresh node).
+/// flags = ImGuiDockNodeFlags bitmask; pass 0 for a plain root.
+/// Returns nodeId (convenience — same value passed in).
+ImGuiID DockBuilderAddNode(ImGuiID nodeId, int flags = 0) @trusted
+{
+    return igDockBuilderAddNode(nodeId, flags);
+}
+
+/// Set the explicit pixel size of a dock node (call before splitting).
+void DockBuilderSetNodeSize(ImGuiID nodeId, ImVec2 size) @trusted
+{
+    igDockBuilderSetNodeSize(nodeId, size.c);
+}
+
+/// Split nodeId along splitDir.
+/// sizeRatioForDir — fraction of nodeId's size assigned to the new child
+/// node in the splitDir direction.
+/// outIdAtDir      — receives the new child node ID in splitDir.
+/// outIdAtOppDir   — receives the remaining child node ID (opposite side).
+/// Returns the new child node ID at splitDir (same as *outIdAtDir).
+ImGuiID DockBuilderSplitNode(ImGuiID  nodeId,
+                              int      splitDir,
+                              float    sizeRatioForDir,
+                              ImGuiID* outIdAtDir,
+                              ImGuiID* outIdAtOppDir) @trusted
+{
+    return igDockBuilderSplitNode(nodeId, splitDir, sizeRatioForDir,
+                                  outIdAtDir, outIdAtOppDir);
+}
+
+/// Assign window windowName to dock node nodeId.
+/// Call this before DockBuilderFinish.
+void DockBuilderDockWindow(string windowName, ImGuiID nodeId) @trusted
+{
+    igDockBuilderDockWindow(cstr(windowName), nodeId);
+}
+
+/// Look up a dock node by ID (returns null if not found).
+ImGuiDockNode* DockBuilderGetNode(ImGuiID nodeId) @trusted
+{
+    return cast(ImGuiDockNode*) igDockBuilderGetNode(nodeId);
+}
+
+/// Look up the central (unoccupied) node of a dockspace (returns null if none).
+ImGuiDockNode* DockBuilderGetCentralNode(ImGuiID nodeId) @trusted
+{
+    return cast(ImGuiDockNode*) igDockBuilderGetCentralNode(nodeId);
+}
+
+/// Finalize the DockBuilder layout — must be called after all split/dock ops.
+void DockBuilderFinish(ImGuiID nodeId) @trusted
+{
+    igDockBuilderFinish(nodeId);
+}

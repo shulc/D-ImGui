@@ -12,6 +12,8 @@ struct ImGuiContext;
 struct ImDrawData;
 struct ImFont;
 struct ImGuiViewport;
+// ImGuiDockNode is an opaque docking-graph node; imgui_h.d re-exports this type.
+struct ImGuiDockNode;
 
 // Alias types that match the C side.
 alias ImU32    = uint;
@@ -48,6 +50,8 @@ alias ImGuiKey            = int;
 alias ImGuiMouseButton    = int;
 alias ImGuiMouseCursor    = int;
 alias ImGuiConfigFlags    = int;
+alias ImGuiDockNodeFlags  = int;
+alias ImGuiDir_           = int;
 alias ImGuiCol_           = int;
 alias ImGuiStyleVar_      = int;
 
@@ -304,6 +308,33 @@ void         igVibe3d_IO_AddKeyEvent(void* io, ImGuiKey key, bool down);
 
 float igVibe3d_Style_ItemSpacingX(void* style);
 float igVibe3d_Style_ItemSpacingY(void* style);
+
+// ── GetID ─────────────────────────────────────────────────────────────────────
+ImGuiID igGetID_Str(const(char)* str_id);
+
+// ── Docking (Phase 0b) ────────────────────────────────────────────────────────
+// igDockSpace: creates a dockspace within the current window.
+// window_class is optional (pass null); typed as void* to avoid mirroring
+// the internal ImGuiWindowClass struct layout.
+ImGuiID igDockSpace(ImGuiID dockspace_id, ImVec2_c size,
+                    ImGuiDockNodeFlags flags, const(void)* window_class);
+
+// ── DockBuilder (Phase 0b) ────────────────────────────────────────────────────
+// DockBuilder is the API for programmatic initial layouts (run once at startup).
+// ImGuiDockNode* return values are typed as void* to avoid mirroring the
+// internal struct layout; callers cast to imgui_h.ImGuiDockNode*.
+void    igDockBuilderRemoveNode(ImGuiID node_id);
+ImGuiID igDockBuilderAddNode(ImGuiID node_id, ImGuiDockNodeFlags flags);
+void    igDockBuilderSetNodeSize(ImGuiID node_id, ImVec2_c size);
+// split_dir is ImGuiDir (int); returns ImGuiID of the new child node at split_dir.
+ImGuiID igDockBuilderSplitNode(ImGuiID node_id, ImGuiDir_ split_dir,
+                                float size_ratio_for_node_at_dir,
+                                ImGuiID* out_id_at_dir,
+                                ImGuiID* out_id_at_opposite_dir);
+void    igDockBuilderDockWindow(const(char)* window_name, ImGuiID node_id);
+void*   igDockBuilderGetNode(ImGuiID node_id);        // returns ImGuiDockNode*
+void*   igDockBuilderGetCentralNode(ImGuiID node_id); // returns ImGuiDockNode*
+void    igDockBuilderFinish(ImGuiID node_id);
 
 // ── Backends ──────────────────────────────────────────────────────────────────
 // These are declared in separate D modules (imgui_impl_sdl2.d / imgui_impl_opengl3.d)
