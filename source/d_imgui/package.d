@@ -149,6 +149,7 @@ void SetScrollHereY(float centerYRatio = 0.5f) @trusted
 // ── Cursor / layout ───────────────────────────────────────────────────────────
 
 ImVec2 GetCursorScreenPos() @trusted { return toImVec2(igGetCursorScreenPos()); }
+void   SetCursorScreenPos(ImVec2 pos) @trusted { igSetCursorScreenPos(pos.c); }
 ImVec2 GetCursorPos()       @trusted { return toImVec2(igGetCursorPos()); }
 void   SetCursorPos(ImVec2 pos) @trusted { igSetCursorPos(pos.c); }
 ImVec2 GetContentRegionAvail() @trusted { return toImVec2(igGetContentRegionAvail()); }
@@ -267,6 +268,13 @@ bool Button(string label, ImVec2 size = ImVec2(0, 0)) @trusted
     return igButton(cstr(label), size.c);
 }
 bool SmallButton(string label) @trusted { return igSmallButton(cstr(label)); }
+
+/// Invisible clickable region. flags is an ImGuiButtonFlags bitmask
+/// (MouseButtonLeft = 1<<0, MouseButtonRight = 1<<1, etc.).
+bool InvisibleButton(string strId, ImVec2 size, int flags = 0) @trusted
+{
+    return igInvisibleButton(cstr(strId), size.c, flags);
+}
 
 bool Checkbox(string label, bool* v) @trusted { return igCheckbox(cstr(label), v); }
 
@@ -555,6 +563,27 @@ ImGuiID DockSpace(ImGuiID dockspaceId,
 void DockBuilderRemoveNode(ImGuiID nodeId) @trusted
 {
     igDockBuilderRemoveNode(nodeId);
+}
+
+/// Remove only the CHILD nodes of nodeId (the split hierarchy), leaving
+/// nodeId itself intact. Any windows that were docked in the child subtree
+/// are re-docked to nodeId. Used for central-node-scoped layout rebuilds:
+/// clears the viewport-cell subtree without touching chrome edge nodes.
+void DockBuilderRemoveNodeChildNodes(ImGuiID nodeId) @trusted
+{
+    igDockBuilderRemoveNodeChildNodes(nodeId);
+}
+
+/// Return the ImGuiID of the central (passthru) node of dockspaceId, or 0
+/// if the node does not yet exist. Reads the ID as the first uint field of
+/// the ImGuiDockNode pointer (ImGuiDockNode.ID is the documented first field
+/// in imgui_internal.h) without requiring a full struct mirror in D.
+ImGuiID centralNodeId(ImGuiID dockspaceId) @trusted
+{
+    void* node = igDockBuilderGetCentralNode(dockspaceId);
+    if (node is null) return 0;
+    // ImGuiID == uint; it is the very first field of ImGuiDockNode.
+    return *(cast(ImGuiID*) node);
 }
 
 /// Add a new root docking node (or reset nodeId to a fresh node).

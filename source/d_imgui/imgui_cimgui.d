@@ -100,6 +100,7 @@ void igSetScrollHereY(float center_y_ratio);
 
 // ── Cursor / layout ───────────────────────────────────────────────────────────
 ImVec2_c igGetCursorScreenPos();
+void     igSetCursorScreenPos(ImVec2_c pos);
 ImVec2_c igGetCursorPos();
 void     igSetCursorPos(ImVec2_c local_pos);
 ImVec2_c igGetContentRegionAvail();
@@ -146,6 +147,7 @@ void igSetTooltip(const(char)* fmt, ...);
 // ── Widgets ───────────────────────────────────────────────────────────────────
 bool igButton(const(char)* label, ImVec2_c size);
 bool igSmallButton(const(char)* label);
+bool igInvisibleButton(const(char)* str_id, ImVec2_c size, ImGuiButtonFlags flags);
 bool igCheckbox(const(char)* label, bool* v);
 bool igRadioButton_Bool(const(char)* label, bool active);
 bool igSelectable_Bool(const(char)* label, bool selected,
@@ -324,6 +326,7 @@ ImGuiID igDockSpace(ImGuiID dockspace_id, ImVec2_c size,
 // ImGuiDockNode* return values are typed as void* to avoid mirroring the
 // internal struct layout; callers cast to imgui_h.ImGuiDockNode*.
 void    igDockBuilderRemoveNode(ImGuiID node_id);
+void    igDockBuilderRemoveNodeChildNodes(ImGuiID node_id); // clear child subtree only; node itself survives
 ImGuiID igDockBuilderAddNode(ImGuiID node_id, ImGuiDockNodeFlags flags);
 void    igDockBuilderSetNodeSize(ImGuiID node_id, ImVec2_c size);
 // split_dir is ImGuiDir (int); returns ImGuiID of the new child node at split_dir.
