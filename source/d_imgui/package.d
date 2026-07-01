@@ -23,6 +23,42 @@ public import d_imgui.imgui_demo;   // stub
 
 nothrow @nogc:
 
+// ── cstr helper ───────────────────────────────────────────────────────────────
+/// NUL-terminates a D string for passing to cimgui C functions that require
+/// a NUL-terminated C string (label, str_id, name, hint, shortcut, format, …).
+///
+/// Uses a thread-local ring of 8 independently-grown buffers so that multiple
+/// cstr() calls within a single expression do not alias each other (e.g.
+/// BeginCombo(label, preview) calls cstr(label) and cstr(preview) in the same
+/// statement — each lands in its own slot).
+///
+/// A null string (s.ptr == null) is returned as null, preserving C semantics
+/// for optional string parameters such as MenuItem shortcut and popup str_id.
+private const(char)* cstr(string s) @trusted
+{
+    if (s.ptr is null) return null;
+
+    import core.stdc.stdlib : realloc;
+
+    static struct Slot { char* buf = null; size_t cap = 0; }
+    static Slot[8] ring;  // thread-local: each thread owns its own ring
+    static uint    ridx;
+
+    Slot* slot = &ring[ridx & 7];
+    ridx++;
+
+    immutable size_t need = s.length + 1;
+    if (slot.cap < need)
+    {
+        // realloc(null, n) == malloc(n); realloc never throws (@nogc-safe).
+        slot.buf = cast(char*) realloc(slot.buf, need);
+        slot.cap = need;
+    }
+    slot.buf[0 .. s.length] = s[];   // copy content (immutable→mutable: @trusted)
+    slot.buf[s.length]      = '\0';
+    return slot.buf;
+}
+
 // ── Context ───────────────────────────────────────────────────────────────────
 
 ImGuiContext* CreateContext(ImFontAtlas* sharedFontAtlas = null) @trusted
@@ -63,7 +99,7 @@ void StyleColorsDark() @trusted { igStyleColorsDark(null); }
 
 bool Begin(string name, bool* p_open = null, int flags = 0) @trusted
 {
-    return igBegin(name.ptr, p_open, flags);
+    return igBegin(cstr(name), p_open, flags);
 }
 
 void End() @trusted { igEnd(); }
@@ -73,7 +109,7 @@ bool BeginChild(string str_id,
                 int childFlags = 0,
                 int windowFlags = 0) @trusted
 {
-    return igBeginChild_Str(str_id.ptr, size.c, childFlags, windowFlags);
+    return igBeginChild_Str(cstr(str_id), size.c, childFlags, windowFlags);
 }
 
 bool BeginChild(ImGuiID id,
@@ -90,8 +126,8 @@ void EndChild() @trusted { igEndChild(); }
 
 bool IsWindowAppearing() @trusted { return igIsWindowAppearing(); }
 
-void SetWindowFocus() @trusted            { igSetWindowFocus_Nil(); }
-void SetWindowFocus(string name) @trusted { igSetWindowFocus_Str(name.ptr); }
+void SetWindowFocus() @trusted             { igSetWindowFocus_Nil(); }
+void SetWindowFocus(string name) @trusted  { igSetWindowFocus_Str(cstr(name)); }
 
 void SetNextWindowPos(ImVec2 pos,
                       int cond = 0,
@@ -123,7 +159,7 @@ void   SameLine(float offsetFromStartX = 0, float spacing = -1) @trusted
 }
 void Dummy(ImVec2 size) @trusted { igDummy(size.c); }
 void Separator() @trusted { igSeparator(); }
-void SeparatorText(string label) @trusted { igSeparatorText(label.ptr); }
+void SeparatorText(string label) @trusted { igSeparatorText(cstr(label)); }
 void AlignTextToFramePadding() @trusted { igAlignTextToFramePadding(); }
 void BeginGroup() @trusted { igBeginGroup(); }
 void EndGroup()   @trusted { igEndGroup(); }
@@ -136,7 +172,7 @@ float GetFrameHeightWithSpacing()    @trusted { return igGetFrameHeightWithSpaci
 
 // ── ID stack ──────────────────────────────────────────────────────────────────
 
-void PushID(string str_id) @trusted  { igPushID_Str(str_id.ptr); }
+void PushID(string str_id) @trusted  { igPushID_Str(cstr(str_id)); }
 void PushID(int int_id)    @trusted  { igPushID_Int(int_id); }
 void PopID()               @trusted  { igPopID(); }
 
@@ -172,148 +208,155 @@ void PopFont()              @trusted { igPopFont(); }
 
 // ── Text ──────────────────────────────────────────────────────────────────────
 
-void Text(string s) @trusted { igTextUnformatted(s.ptr, s.ptr + s.length); }
+// Single-string overloads use igTextUnformatted(ptr, ptr+len) — no NUL needed.
+void Text(string s)            @trusted { igTextUnformatted(s.ptr, s.ptr + s.length); }
 void TextUnformatted(string s) @trusted { igTextUnformatted(s.ptr, s.ptr + s.length); }
 
 // Printf-style Text overloads for integer args (most common in vibe3d).
-// These call igText directly, passing int args as C varargs.
+// igText is a printf-family function; the format string must be NUL-terminated.
 void Text(string fmt, int a) @trusted
-    { igText(fmt.ptr, a); }
+    { igText(cstr(fmt), a); }
 void Text(string fmt, int a, int b) @trusted
-    { igText(fmt.ptr, a, b); }
+    { igText(cstr(fmt), a, b); }
 void Text(string fmt, int a, int b, int c) @trusted
-    { igText(fmt.ptr, a, b, c); }
+    { igText(cstr(fmt), a, b, c); }
 
+// TextColored — single string: igTextColored with "%.*s" avoids NUL requirement.
 void TextColored(ImVec4 col, string s) @trusted
 {
     igTextColored(col.c, "%.*s", cast(int) s.length, s.ptr);
 }
-/// TextColored with printf format + one int arg.
+/// TextColored with printf format + one int arg — format is a C string.
 void TextColored(ImVec4 col, string fmt, int a) @trusted
-    { igTextColored(col.c, fmt.ptr, a); }
+    { igTextColored(col.c, cstr(fmt), a); }
 
+// TextDisabled — single string: igTextDisabled with "%.*s" avoids NUL requirement.
 void TextDisabled(string s) @trusted
 {
     igTextDisabled("%.*s", cast(int) s.length, s.ptr);
 }
-/// TextDisabled with one string arg for "%s" printf pattern.
-/// The string must be null-terminated (D string literals qualify).
+/// TextDisabled with a runtime string arg passed through "%s" — both fmt and s
+/// must be NUL-terminated because they cross the C varargs boundary.
 void TextDisabled(string fmt, string s) @trusted
-    { igTextDisabled(fmt.ptr, s.ptr); }
-/// TextDisabled with two int args.
+    { igTextDisabled(cstr(fmt), cstr(s)); }
+/// TextDisabled with two int args — fmt must be NUL-terminated.
 void TextDisabled(string fmt, int a, int b) @trusted
-    { igTextDisabled(fmt.ptr, a, b); }
+    { igTextDisabled(cstr(fmt), a, b); }
 
+// LabelText — single string: label is a C string; value uses "%.*s" idiom.
 void LabelText(string label, string s) @trusted
 {
-    igLabelText(label.ptr, "%.*s", cast(int) s.length, s.ptr);
+    igLabelText(cstr(label), "%.*s", cast(int) s.length, s.ptr);
 }
 /// LabelText with printf format + two int args (e.g. "%d/%d").
 void LabelText(string label, string fmt, int a, int b) @trusted
-    { igLabelText(label.ptr, fmt.ptr, a, b); }
+    { igLabelText(cstr(label), cstr(fmt), a, b); }
 
+// SetTooltip — single string: igSetTooltip with "%.*s" avoids NUL requirement.
 void SetTooltip(string s) @trusted
 {
     igSetTooltip("%.*s", cast(int) s.length, s.ptr);
 }
-/// SetTooltip with printf format + one int arg.
-void SetTooltip(string fmt, int a) @trusted { igSetTooltip(fmt.ptr, a); }
+/// SetTooltip with printf format + one int arg — format is a C string.
+void SetTooltip(string fmt, int a) @trusted { igSetTooltip(cstr(fmt), a); }
 
 // ── Widgets ───────────────────────────────────────────────────────────────────
 
 bool Button(string label, ImVec2 size = ImVec2(0, 0)) @trusted
 {
-    return igButton(label.ptr, size.c);
+    return igButton(cstr(label), size.c);
 }
-bool SmallButton(string label) @trusted { return igSmallButton(label.ptr); }
+bool SmallButton(string label) @trusted { return igSmallButton(cstr(label)); }
 
-bool Checkbox(string label, bool* v) @trusted { return igCheckbox(label.ptr, v); }
+bool Checkbox(string label, bool* v) @trusted { return igCheckbox(cstr(label), v); }
 
 bool RadioButton(string label, bool active) @trusted
 {
-    return igRadioButton_Bool(label.ptr, active);
+    return igRadioButton_Bool(cstr(label), active);
 }
 
 bool Selectable(string label, bool selected = false,
                 int flags = 0, ImVec2 size = ImVec2(0, 0)) @trusted
 {
-    return igSelectable_Bool(label.ptr, selected, flags, size.c);
+    return igSelectable_Bool(cstr(label), selected, flags, size.c);
 }
 
 bool InputText(string label, char* buf, size_t bufSize,
                int flags = 0) @trusted
 {
-    return igInputText(label.ptr, buf, bufSize, flags, null, null);
+    return igInputText(cstr(label), buf, bufSize, flags, null, null);
 }
 
 /// D slice overload — extracts ptr + length from the char[] automatically.
 bool InputText(string label, char[] buf, int flags = 0) @trusted
 {
-    return igInputText(label.ptr, buf.ptr, buf.length, flags, null, null);
+    return igInputText(cstr(label), buf.ptr, buf.length, flags, null, null);
 }
 
 bool InputTextWithHint(string label, string hint, char* buf, size_t bufSize,
                        int flags = 0) @trusted
 {
-    return igInputTextWithHint(label.ptr, hint.ptr, buf, bufSize, flags, null, null);
+    return igInputTextWithHint(cstr(label), cstr(hint), buf, bufSize, flags, null, null);
 }
 
 /// D slice overload — extracts ptr + length from the char[] automatically.
 bool InputTextWithHint(string label, string hint, char[] buf,
                        int flags = 0) @trusted
 {
-    return igInputTextWithHint(label.ptr, hint.ptr, buf.ptr, buf.length, flags, null, null);
+    return igInputTextWithHint(cstr(label), cstr(hint),
+                               buf.ptr, buf.length, flags, null, null);
 }
 
 bool SliderFloat(string label, float* v, float vMin, float vMax,
                  string fmt = "%.3f", int flags = 0) @trusted
 {
-    return igSliderFloat(label.ptr, v, vMin, vMax, fmt.ptr, flags);
+    return igSliderFloat(cstr(label), v, vMin, vMax, cstr(fmt), flags);
 }
 
 bool SliderInt(string label, int* v, int vMin, int vMax,
                string fmt = "%d", int flags = 0) @trusted
 {
-    return igSliderInt(label.ptr, v, vMin, vMax, fmt.ptr, flags);
+    return igSliderInt(cstr(label), v, vMin, vMax, cstr(fmt), flags);
 }
 
 bool DragFloat(string label, float* v, float vSpeed = 1.0f,
                float vMin = 0, float vMax = 0,
                string fmt = "%.3f", int flags = 0) @trusted
 {
-    return igDragFloat(label.ptr, v, vSpeed, vMin, vMax, fmt.ptr, flags);
+    return igDragFloat(cstr(label), v, vSpeed, vMin, vMax, cstr(fmt), flags);
 }
 
 bool DragInt(string label, int* v, float vSpeed = 1.0f,
              int vMin = 0, int vMax = 0,
              string fmt = "%d", int flags = 0) @trusted
 {
-    return igDragInt(label.ptr, v, vSpeed, vMin, vMax, fmt.ptr, flags);
+    return igDragInt(cstr(label), v, vSpeed, vMin, vMax, cstr(fmt), flags);
 }
 
 bool CollapsingHeader(string label, int flags = 0) @trusted
 {
-    return igCollapsingHeader_TreeNodeFlags(label.ptr, flags);
+    return igCollapsingHeader_TreeNodeFlags(cstr(label), flags);
 }
 
 void ProgressBar(float fraction, ImVec2 sizeArg = ImVec2(-float.min_normal, 0),
                  string overlay = null) @trusted
 {
-    igProgressBar(fraction, sizeArg.c, overlay.ptr);
+    // overlay may be null (cimgui draws no text overlay when null).
+    igProgressBar(fraction, sizeArg.c, cstr(overlay));
 }
 
 // ── Combo ─────────────────────────────────────────────────────────────────────
 
 bool BeginCombo(string label, string previewValue, int flags = 0) @trusted
 {
-    return igBeginCombo(label.ptr, previewValue.ptr, flags);
+    return igBeginCombo(cstr(label), cstr(previewValue), flags);
 }
 void EndCombo() @trusted { igEndCombo(); }
 
 bool Combo(string label, int* currentItem,
            const(char*)[] items, int popupMaxHeightInItems = -1) @trusted
 {
-    return igCombo_Str_arr(label.ptr, currentItem,
+    return igCombo_Str_arr(cstr(label), currentItem,
                            items.ptr, cast(int) items.length,
                            popupMaxHeightInItems);
 }
@@ -322,45 +365,47 @@ bool Combo(string label, int* currentItem,
 
 bool BeginMenu(string label, bool enabled = true) @trusted
 {
-    return igBeginMenu(label.ptr, enabled);
+    return igBeginMenu(cstr(label), enabled);
 }
 void EndMenu() @trusted { igEndMenu(); }
 
 bool MenuItem(string label, string shortcut = null,
               bool selected = false, bool enabled = true) @trusted
 {
-    return igMenuItem_Bool(label.ptr, shortcut.ptr, selected, enabled);
+    // shortcut defaults to null → cstr(null) returns null (no shortcut displayed).
+    return igMenuItem_Bool(cstr(label), cstr(shortcut), selected, enabled);
 }
 
 // ── Popups ────────────────────────────────────────────────────────────────────
 
 bool BeginPopup(string strId, int flags = 0) @trusted
 {
-    return igBeginPopup(strId.ptr, flags);
+    return igBeginPopup(cstr(strId), flags);
 }
 
 bool BeginPopupModal(string name, bool* p_open = null, int flags = 0) @trusted
 {
-    return igBeginPopupModal(name.ptr, p_open, flags);
+    return igBeginPopupModal(cstr(name), p_open, flags);
 }
 
 void EndPopup() @trusted { igEndPopup(); }
 
 void OpenPopup(string strId, int popupFlags = 0) @trusted
 {
-    igOpenPopup_Str(strId.ptr, popupFlags);
+    igOpenPopup_Str(cstr(strId), popupFlags);
 }
 
 bool BeginPopupContextItem(string strId = null,
                             int popupFlags = ImGuiPopupFlags.MouseButtonRight) @trusted
 {
-    return igBeginPopupContextItem(strId.ptr, popupFlags);
+    // strId defaults to null → cstr(null) returns null (cimgui uses last item id).
+    return igBeginPopupContextItem(cstr(strId), popupFlags);
 }
 
 bool BeginPopupContextWindow(string strId = null,
                               int popupFlags = ImGuiPopupFlags.MouseButtonRight) @trusted
 {
-    return igBeginPopupContextWindow(strId.ptr, popupFlags);
+    return igBeginPopupContextWindow(cstr(strId), popupFlags);
 }
 
 void CloseCurrentPopup() @trusted { igCloseCurrentPopup(); }
@@ -386,6 +431,7 @@ void SetItemDefaultFocus()        @trusted { igSetItemDefaultFocus(); }
 
 // ── Text utilities ────────────────────────────────────────────────────────────
 
+// CalcTextSize uses igCalcTextSize(ptr, ptr+len) — no NUL needed (correct as-is).
 ImVec2 CalcTextSize(string text,
                     bool hideTextAfterDoubleHash = false,
                     float wrapWidth = -1) @trusted
@@ -435,12 +481,12 @@ void EndDragDropTarget()   @trusted { igEndDragDropTarget(); }
 bool SetDragDropPayload(string type_, const(void)* data, size_t sz,
                         int cond = 0) @trusted
 {
-    return igSetDragDropPayload(type_.ptr, data, sz, cond);
+    return igSetDragDropPayload(cstr(type_), data, sz, cond);
 }
 
 const(ImGuiPayload)* AcceptDragDropPayload(string type_, int flags = 0) @trusted
 {
-    return cast(const(ImGuiPayload)*) igAcceptDragDropPayload(type_.ptr, flags);
+    return cast(const(ImGuiPayload)*) igAcceptDragDropPayload(cstr(type_), flags);
 }
 
 // ── Image ─────────────────────────────────────────────────────────────────────
@@ -471,7 +517,7 @@ ImDrawList* GetBackgroundDrawList() @trusted
 
 // ── Clipboard ─────────────────────────────────────────────────────────────────
 
-void SetClipboardText(string text) @trusted { igSetClipboardText(text.ptr); }
+void SetClipboardText(string text) @trusted { igSetClipboardText(cstr(text)); }
 
 // ── Keyboard focus ────────────────────────────────────────────────────────────
 

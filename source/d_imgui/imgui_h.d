@@ -45,6 +45,11 @@ struct ImVec4
 ImVec2 toImVec2(ImVec2_c v) @safe nothrow @nogc { return ImVec2(v.x, v.y); }
 ImVec4 toImVec4(ImVec4_c v) @safe nothrow @nogc { return ImVec4(v.x, v.y, v.z, v.w); }
 
+// Verify that the D value types match the C++ ABI sizes expected by cimgui.
+// ImVec2 = 2× float = 8 bytes; ImVec4 = 4× float = 16 bytes.
+static assert(ImVec2.sizeof == 8,  "ImVec2 size mismatch vs C++ imgui.h");
+static assert(ImVec4.sizeof == 16, "ImVec4 size mismatch vs C++ imgui.h");
+
 // ── ImFontConfig ──────────────────────────────────────────────────────────────
 // Layout must exactly match C++ ImFontConfig on x86-64 (verified offset-by-offset
 // against imgui.h 1.92.8).  Field defaults match C++ constructor defaults.
