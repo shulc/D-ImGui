@@ -104,6 +104,7 @@ void igSetWindowFocus_Nil();
 void igSetWindowFocus_Str(const(char)* name);
 void igSetNextWindowPos(ImVec2_c pos, ImGuiCond cond, ImVec2_c pivot);
 void igSetNextWindowSize(ImVec2_c size, ImGuiCond cond);
+void igSetNextWindowBgAlpha(float alpha);
 void igSetScrollHereY(float center_y_ratio);
 
 // ── Cursor / layout ───────────────────────────────────────────────────────────
@@ -175,6 +176,12 @@ bool igDragInt(const(char)* label, int* v, float v_speed,
                int v_min, int v_max, const(char)* format, ImGuiSliderFlags flags);
 bool igCollapsingHeader_TreeNodeFlags(const(char)* label, ImGuiTreeNodeFlags flags);
 void igProgressBar(float fraction, ImVec2_c size_arg, const(char)* overlay);
+
+// ── Plot ──────────────────────────────────────────────────────────────────────
+void igPlotLines_FloatPtr(const(char)* label, const(float)* values, int values_count,
+                          int values_offset, const(char)* overlay_text,
+                          float scale_min, float scale_max, ImVec2_c graph_size,
+                          int stride);
 
 // ── Combo ─────────────────────────────────────────────────────────────────────
 bool igBeginCombo(const(char)* label, const(char)* preview_value, ImGuiComboFlags flags);

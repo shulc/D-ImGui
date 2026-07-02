@@ -155,6 +155,11 @@ void SetNextWindowSize(ImVec2 size, int cond = 0) @trusted
     igSetNextWindowSize(size.c, cond);
 }
 
+void SetNextWindowBgAlpha(float alpha) @trusted
+{
+    igSetNextWindowBgAlpha(alpha);
+}
+
 void SetScrollHereY(float centerYRatio = 0.5f) @trusted
 {
     igSetScrollHereY(centerYRatio);
@@ -365,6 +370,33 @@ void ProgressBar(float fraction, ImVec2 sizeArg = ImVec2(-float.min_normal, 0),
 {
     // overlay may be null (cimgui draws no text overlay when null).
     igProgressBar(fraction, sizeArg.c, cstr(overlay));
+}
+
+// ── Plot ──────────────────────────────────────────────────────────────────────
+
+/// Raw-pointer overload — caller owns `values` (a preallocated buffer, e.g. a
+/// HUD's own ring). No allocation on this path. `scaleMin`/`scaleMax` default
+/// to `float.max` (cimgui's sentinel for "auto-scale from the visible range");
+/// pass explicit bounds for a fixed y-axis (e.g. a frame-time graph with
+/// stable target lines).
+void PlotLines(string label, const(float)* values, int valuesCount,
+               int valuesOffset = 0, string overlayText = null,
+               float scaleMin = float.max, float scaleMax = float.max,
+               ImVec2 graphSize = ImVec2(0, 0)) @trusted
+{
+    igPlotLines_FloatPtr(cstr(label), values, valuesCount, valuesOffset,
+                         cstr(overlayText), scaleMin, scaleMax, graphSize.c,
+                         cast(int) float.sizeof);
+}
+
+/// D slice overload — extracts ptr + length automatically.
+void PlotLines(string label, const(float)[] values, int valuesOffset = 0,
+               string overlayText = null,
+               float scaleMin = float.max, float scaleMax = float.max,
+               ImVec2 graphSize = ImVec2(0, 0)) @trusted
+{
+    PlotLines(label, values.ptr, cast(int) values.length, valuesOffset,
+             overlayText, scaleMin, scaleMax, graphSize);
 }
 
 // ── Combo ─────────────────────────────────────────────────────────────────────
