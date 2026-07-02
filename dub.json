@@ -29,6 +29,8 @@
         "$PACKAGE_DIR/lib/libcimgui_docking.a",
         "-lc++",
         "-L$PACKAGE_DIR/lib",
+        "-L/opt/homebrew/lib",
+        "-L/usr/local/lib",
         "-lSDL2"
     ],
     "lflags-windows": [
