@@ -51,6 +51,12 @@ fi
 SDL_CFLAGS=""
 if pkg-config --exists sdl2 2>/dev/null; then
     SDL_CFLAGS="$(pkg-config --cflags sdl2)"
+elif command -v sdl2-config >/dev/null 2>&1; then
+    # SDL2's own config tool resolves the include path for ANY install prefix
+    # — notably Homebrew on Apple Silicon (/opt/homebrew) where pkg-config's
+    # search path often isn't wired up. Correct on x64 (/usr/local) too.
+    SDL_CFLAGS="$(sdl2-config --cflags)"
+    echo "build_imgui_libs.sh: using SDL2 headers from sdl2-config"
 else
     SDL_CANDIDATES=(
         # D-Cycles ships SDL2 headers on Linux x64
@@ -59,7 +65,8 @@ else
         "$HOME/.dub/packages/d-cycles/~master/d-cycles/extern/blender/lib/linux_x64/sdl/include"
         # standard paths
         "/usr/include/SDL2"
-        "/usr/local/include/SDL2"
+        "/usr/local/include/SDL2"       # Linux / x86_64 Homebrew
+        "/opt/homebrew/include/SDL2"    # Apple Silicon Homebrew (arm64)
     )
     for d in "${SDL_CANDIDATES[@]}"; do
         if [ -f "$d/SDL.h" ]; then
