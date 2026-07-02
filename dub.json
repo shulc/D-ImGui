@@ -7,8 +7,17 @@
     "targetName": "d_imgui_stub",
     "sourcePaths": ["source"],
     "importPaths": ["source"],
-    "preBuildCommands": [
-        "\"$PACKAGE_DIR/tools/build_imgui_libs.sh\""
+    "preBuildCommands-linux": [
+        "cd \"$PACKAGE_DIR\" && git submodule sync --quiet extern/cimgui && git submodule update --init --recursive --quiet extern/cimgui",
+        "cd \"$PACKAGE_DIR\" && test -f lib/libcimgui_docking.a || bash tools/build_imgui_libs.sh"
+    ],
+    "preBuildCommands-osx": [
+        "cd \"$PACKAGE_DIR\" && git submodule sync --quiet extern/cimgui && git submodule update --init --recursive --quiet extern/cimgui",
+        "cd \"$PACKAGE_DIR\" && test -f lib/libcimgui_docking.a || bash tools/build_imgui_libs.sh"
+    ],
+    "preBuildCommands-windows": [
+        "cd /d \"$PACKAGE_DIR\" && bash -lc \"git submodule sync --quiet extern/cimgui && git submodule update --init --recursive --quiet extern/cimgui\"",
+        "cd /d \"$PACKAGE_DIR\" && bash -lc \"test -f lib/cimgui_docking.lib || tools/build_imgui_libs.sh\""
     ],
     "lflags-linux": [
         "$PACKAGE_DIR/lib/libcimgui_docking.a",
@@ -21,6 +30,10 @@
         "-lc++",
         "-L$PACKAGE_DIR/lib",
         "-lSDL2"
+    ],
+    "lflags-windows": [
+        "$PACKAGE_DIR/lib/cimgui_docking.lib",
+        "$SDL2_DIR/lib/x64/SDL2.lib"
     ],
     "dependencies": {
         "bindbc-sdl": "*"
