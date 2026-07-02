@@ -70,6 +70,14 @@ void igRender();
 void igEndFrame();
 ImDrawData* igGetDrawData();
 
+// ── Settings persistence ─────────────────────────────────────────────────────
+// NewFrame() calls this automatically for io.IniFilename on the very first
+// frame; exposed directly for callers that need to force a reload of the
+// live in-memory settings from an explicit path on a later frame boundary
+// (must NOT be called between NewFrame()/EndFrame() — see imgui.h comment
+// on ImGui::LoadIniSettingsFromDisk).
+void igLoadIniSettingsFromDisk(const(char)* ini_filename);
+
 // ── IO / Style ────────────────────────────────────────────────────────────────
 ImGuiContext* igGetCurrentContext();
 // These return pointers; the D ImGuiIO / ImGuiStyle opaque wrappers dereference them.

@@ -77,6 +77,20 @@ void NewFrame() @trusted { igNewFrame(); }
 void Render()   @trusted { igRender(); }
 ImDrawData* GetDrawData() @trusted { return igGetDrawData(); }
 
+// ── Settings persistence ─────────────────────────────────────────────────────
+
+/// Load window/dock settings from `ini_filename`, replacing the current live
+/// in-memory settings. NewFrame() already does this automatically for
+/// io.IniFilename on the very first frame of a context; call this directly
+/// only to force a reload afterwards (e.g. after re-seeding the ini file on
+/// disk from a shipped default). Must be called OUTSIDE the NewFrame/EndFrame
+/// scope — calling it mid-frame is unsafe (matches upstream ImGui's own
+/// restriction on ImGui::LoadIniSettingsFromDisk).
+void LoadIniSettingsFromDisk(string ini_filename) @trusted
+{
+    igLoadIniSettingsFromDisk(cstr(ini_filename));
+}
+
 // ── IO / Style ────────────────────────────────────────────────────────────────
 
 /// Returns a reference to the current ImGuiIO (backed by C++ memory).
